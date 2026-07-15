@@ -22,6 +22,7 @@ export async function connectToMongoDB() {
 
     const zapDB = client.db("zapDB")
     const serviceCenters = zapDB.collection("serviceCenters")
+    const parcelCollection = zapDB.collection("parcelCollection")
 
 
     app.get('/servicecenter', async(req, res) =>{
@@ -30,6 +31,11 @@ export async function connectToMongoDB() {
         res.send(result)
     })
 
+    app.post("/sendparcel", async(req, res) =>{
+      const query = req.body;
+      const result = await parcelCollection.insertOne(query)
+      res.send(result) 
+    })
     
     return client;
   } catch (err) {
