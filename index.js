@@ -1,6 +1,6 @@
 import express from "express"
 const app = express()
-import {MongoClient} from'mongodb';
+import {MongoClient, ObjectId} from'mongodb';
 import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
@@ -53,6 +53,13 @@ export async function connectToMongoDB() {
       query.createdAt = new Date()
       const result = await parcelCollection.insertOne(query)
       res.send(result) 
+    })
+
+    app.delete("/myparcels/:id", async(req, res) =>{
+      const parcelId = req.params.id;
+      const query = {_id: new ObjectId(parcelId)};
+      const result = await parcelCollection.deleteOne(query)
+      res.send(result)
     })
     
     return client;
