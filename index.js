@@ -25,14 +25,32 @@ export async function connectToMongoDB() {
     const parcelCollection = zapDB.collection("parcelCollection")
 
 
+    // -------------- serviceCenter -----------
+
     app.get('/servicecenter', async(req, res) =>{
         const cursor = serviceCenters.find()
         const result = await cursor.toArray()
         res.send(result)
     })
 
+    // ---------------- customerParcelsApi -----------------
+
+    app.get("/myparcels", async(req, res) =>{
+       const query = {};
+        const {email} = req.query
+
+        if(email){
+          query.senderEmail = email
+        }
+        const cursor = parcelCollection.find(query).sort({createdAt: -1})
+        const result = await cursor.toArray()
+        res.send(result)
+    })
+
+
     app.post("/sendparcel", async(req, res) =>{
       const query = req.body;
+      query.createdAt = new Date()
       const result = await parcelCollection.insertOne(query)
       res.send(result) 
     })
