@@ -116,6 +116,20 @@ export async function connectToMongoDB() {
     const sessionId = req.query.session_id;
     const session = await stripe.checkout.sessions.retrieve(sessionId)
 
+    const transactionId = session.payment_intent;
+
+    const query = {transactionId: transactionId}
+    const paymentExist = await paymentCollection.findOne(query)
+
+    if(paymentExist){
+      return res.send({
+        message: "payment already exists", 
+        transactionId: transactionId,
+        trackingId: paymentExist.trackingId
+      })
+    }
+
+
     if(session.payment_status === "paid"){
       const id = session.metadata.parcelId;
       const query = ({_id: new ObjectId(id)})
@@ -130,7 +144,7 @@ export async function connectToMongoDB() {
       }
       const result = await parcelCollection.updateOne(query, updateDoc)
 
-      const parcelInfo = {
+      const paymentInfo = {
         parcelId: session.metadata.parcelId,
         parcelName: session.metadata.parcelName,
         customerEmail: session.customer_email,
@@ -138,23 +152,38 @@ export async function connectToMongoDB() {
         currency: session.currency,
         transactionId: session.payment_intent,
         paymentStatus: session.payment_status,
+        trackingId: trackingId,
         paidAt: new Date(),
       }
+
       if(session.payment_status === "paid"){
-      const reesultPayment = await paymentCollection.insertOne(parcelInfo)
-      res.send({success: true, 
+      try {
+        const reesultPayment = await paymentCollection.insertOne(paymentInfo)
+        res.send({success: true, 
         modifyParcel: result, 
         transactionId: session.payment_intent,
         trackingId: trackingId,
         paymentInfo: reesultPayment
       })
+      } catch (error) {
+        console.log(error)
+      }
       }
 
     }
     console.log(session)
   })
 
+  app.get("/payments", async(req, res) =>{
+    const email = req.query.email;
+    const query = {}
 
+    if(email){
+      query.customerEmail = email
+    }
+    const result = await paymentCollection.find(query).toArray()
+    res.send(result)
+  })
 
 
 
