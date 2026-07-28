@@ -9,6 +9,19 @@ const stripe = new Stripe(process.env.PAYMENT_KEY);
 const port = process.env.PORT || 3000;
 import crypto from "crypto";
 
+import { initializeApp, cert } from "firebase-admin/app";
+import { readFileSync } from "fs";
+import { getAuth } from "firebase-admin/auth";
+
+const serviceAccount = JSON.parse(
+  readFileSync(new URL("./zap-shift-app-firebase-adminsdk.json", import.meta.url))
+);
+
+initializeApp({
+  credential: cert(serviceAccount),
+});
+
+
 function generateTrackingId() {
     const date = new Date().toISOString().slice(0,10).replace(/-/g, "");
     const random = crypto.randomBytes(3).toString("hex").toUpperCase();
@@ -16,12 +29,28 @@ function generateTrackingId() {
     return `SD-${date}-${random}`;
 }
 
+
 app.use(cors())
 app.use(express.json())
 app.use(express.static('public'));
 
-const YOUR_DOMAIN = `${process.env.DOMAIN_API}`;
+const verifyUser = async(req, res, next) =>{
+  const token = req.headers.authorization
+  // console.log(token)
+  if(!token){
+    return res.status(401).send({message: "Unauthorized access"})
+  }
 
+  try {
+    const idToken = token.split(" ")[1];
+    const decoded = await getAuth().verifyIdToken(idToken)
+    req.decoded_email = decoded.email;
+    next()
+    // console.log(decoded)
+  } catch (error) {
+    return res.status(401).send({message: "unauthorized access"})
+  }
+}
 
 const client = new MongoClient(`mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@ac-eqifd2k-shard-00-00.tbmejyb.mongodb.net:27017,ac-eqifd2k-shard-00-01.tbmejyb.mongodb.net:27017,ac-eqifd2k-shard-00-02.tbmejyb.mongodb.net:27017/?ssl=true&replicaSet=atlas-bvjx8p-shard-0&authSource=admin&appName=Cluster0`);
 
@@ -35,6 +64,8 @@ export async function connectToMongoDB() {
     const serviceCenters = zapDB.collection("serviceCenters")
     const parcelCollection = zapDB.collection("parcelCollection")
     const paymentCollection = zapDB.collection("paymentCollection")
+    const userCollection = zapDB.collection("userCollection")
+
 
     // -------------- serviceCenter -----------
 
@@ -44,14 +75,33 @@ export async function connectToMongoDB() {
         res.send(result)
     })
 
+    // ------------- userCollection --------------
+
+    app.post("/users", async(req, res) =>{
+      const users = req.body;
+      users.role = "user";
+      users.createdAt = new Date()
+      // const email = users.email;
+      // const query = {}
+      // const existingUser = {email}
+      // if(existingUser)
+
+      const result = await userCollection.insertOne(users)
+      res.send(result)
+    })
+
     // ---------------- customerParcelsApi -----------------
 
-    app.get("/myparcels", async(req, res) =>{
+    app.get("/myparcels", verifyUser, async(req, res) =>{
        const query = {};
         const {email} = req.query
 
         if(email){
           query.senderEmail = email
+
+          if(email !== req.decoded_email){
+            return res.status(403).send({message: "forbidden access"})
+          }
         }
         const cursor = parcelCollection.find(query).sort({createdAt: -1})
         const result = await cursor.toArray()
@@ -171,7 +221,7 @@ export async function connectToMongoDB() {
       }
 
     }
-    console.log(session)
+    // console.log(session)
   })
 
   app.get("/payments", async(req, res) =>{
