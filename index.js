@@ -65,6 +65,7 @@ export async function connectToMongoDB() {
     const parcelCollection = zapDB.collection("parcelCollection")
     const paymentCollection = zapDB.collection("paymentCollection")
     const userCollection = zapDB.collection("userCollection")
+    const riderCollection = zapDB.collection("riderCollection")
 
 
     // -------------- serviceCenter -----------
@@ -75,16 +76,32 @@ export async function connectToMongoDB() {
         res.send(result)
     })
 
+    // -------------- riderCollection ------------
+
+    app.get("/riders", async(req,res) =>{
+        const cursor = riderCollection.find()
+        const result = await cursor.toArray()
+        res.send(result)
+    })
+
+    app.post("/riders", async(req, res) =>{
+      const rider = req.body;
+      rider.status = "pending";
+      rider.createdAt = new Date()
+      const result = await riderCollection.insertOne(rider)
+      res.send(result)
+    })
     // ------------- userCollection --------------
 
     app.post("/users", async(req, res) =>{
       const users = req.body;
       users.role = "user";
       users.createdAt = new Date()
-      // const email = users.email;
-      // const query = {}
-      // const existingUser = {email}
-      // if(existingUser)
+      const email = users.email;
+      const existingUser = await userCollection.findOne({email})
+      if(existingUser){
+        return res.send({message: "user already exist"})
+      }
 
       const result = await userCollection.insertOne(users)
       res.send(result)
@@ -224,7 +241,7 @@ export async function connectToMongoDB() {
     // console.log(session)
   })
 
-  app.get("/payments", async(req, res) =>{
+  app.get("/payments", verifyUser, async(req, res) =>{
     const email = req.query.email;
     const query = {}
 
