@@ -91,6 +91,28 @@ export async function connectToMongoDB() {
       const result = await riderCollection.insertOne(rider)
       res.send(result)
     })
+
+    app.patch("/riders/:id", async(req, res) =>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const status = req.query.status;
+      const updateDoc = {
+        $set : {
+          status: status
+        }
+      }
+      const result = await riderCollection.updateOne(query, updateDoc)
+      res.send(result)
+    })
+
+    app.delete("/riders/:id", async(req, res) =>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const result = await riderCollection.deleteOne(query)
+      res.send(result)
+    })
+
+
     // ------------- userCollection --------------
 
     app.post("/users", async(req, res) =>{
