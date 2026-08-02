@@ -70,6 +70,16 @@ export async function connectToMongoDB() {
 
     // -------------- serviceCenter -----------
 
+    const verifyAdmin = async(req, res, next) =>{
+      const email = req.decoded_email;
+      const query = {email}
+      const user = await userCollection.findOne(query)
+      if(!user || user?.role !== "admin" ){
+        return res.status(403).send({message: "forbidden access"})
+      }
+      next()
+    }
+
     app.get('/servicecenter', async(req, res) =>{
         const cursor = serviceCenters.find()
         const result = await cursor.toArray()
@@ -92,7 +102,7 @@ export async function connectToMongoDB() {
       res.send(result)
     })
 
-    app.patch("/riders/:id", async(req, res) =>{
+    app.patch("/riders/:id", verifyAdmin, async(req, res) =>{
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
       const status = req.query.status;
@@ -115,6 +125,18 @@ export async function connectToMongoDB() {
 
     // ------------- userCollection --------------
 
+    app.get("/users", async(req, res) =>{
+      const cursor = userCollection.find()
+      const result = await cursor.toArray()
+      res.send(result)
+    })
+
+    app.get("/users/:email/role", async(req, res) =>{
+      const email = req.params.email;
+      const query = {email}
+      const result = await userCollection.findOne(query)
+      res.send({role: result?.role || "user"})
+    })
     app.post("/users", async(req, res) =>{
       const users = req.body;
       users.role = "user";
@@ -126,6 +148,19 @@ export async function connectToMongoDB() {
       }
 
       const result = await userCollection.insertOne(users)
+      res.send(result)
+    })
+
+    app.patch("/users/:id/role", verifyUser, verifyAdmin, async(req, res) =>{
+      const id = req.params.id;
+      const roleInfo = req.body;
+      const query = {_id : new ObjectId(id)}
+      const updateDoc = {
+        $set: {
+          role: roleInfo.role
+        }
+      }
+      const result = await userCollection.updateOne(query, updateDoc)
       res.send(result)
     })
 
