@@ -88,8 +88,19 @@ export async function connectToMongoDB() {
 
     // -------------- riderCollection ------------
 
-    app.get("/riders", async(req,res) =>{
-        const cursor = riderCollection.find()
+    app.get("/riders", verifyUser, verifyAdmin, async(req,res) =>{
+      const {status, district, workStatus} = req.query;
+      const query = {}
+      if(status){
+        query.status = status
+      }
+      if(district){
+        query.district = district
+      }
+      if(workStatus){
+        query.workStatus = workStatus
+      }
+        const cursor = riderCollection.find(query)
         const result = await cursor.toArray()
         res.send(result)
     })
@@ -102,13 +113,14 @@ export async function connectToMongoDB() {
       res.send(result)
     })
 
-    app.patch("/riders/:id", verifyAdmin, async(req, res) =>{
+    app.patch("/riders/:id", async(req, res) =>{
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
       const status = req.query.status;
       const updateDoc = {
         $set : {
-          status: status
+          status: status,
+          workStatus: "available"
         }
       }
       const result = await riderCollection.updateOne(query, updateDoc)
@@ -137,6 +149,7 @@ export async function connectToMongoDB() {
       const result = await userCollection.findOne(query)
       res.send({role: result?.role || "user"})
     })
+
     app.post("/users", async(req, res) =>{
       const users = req.body;
       users.role = "user";
@@ -168,7 +181,7 @@ export async function connectToMongoDB() {
 
     app.get("/myparcels", verifyUser, async(req, res) =>{
        const query = {};
-        const {email} = req.query
+        const {email, deliveryStatus} = req.query
 
         if(email){
           query.senderEmail = email
@@ -177,9 +190,21 @@ export async function connectToMongoDB() {
             return res.status(403).send({message: "forbidden access"})
           }
         }
+
+        if(deliveryStatus){
+          query.deliveryStatus = deliveryStatus
+        }
+
+
         const cursor = parcelCollection.find(query).sort({createdAt: -1})
         const result = await cursor.toArray()
         res.send(result)
+    })
+
+    app.get("/parcels/admin", async(req, res) =>{
+      const cursor = parcelCollection.find()
+      const result = await cursor.toArray() 
+      res.send(result)
     })
 
     app.get('/parcel/:id', async(req, res) =>{
@@ -196,6 +221,31 @@ export async function connectToMongoDB() {
       res.send(result) 
     })
 
+    app.patch("/parcel/:id", async(req, res) =>{
+      const {riderId, riderName, riderEmail} = req.body;
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+
+      const updateDoc = {
+        $set: {
+          deliveryStatus: "in_deliver",
+          riderId: riderId,
+          riderName: riderName,
+          riderEmail: riderEmail
+        }
+      }
+      const result = await parcelCollection.updateOne(query, updateDoc)
+
+      const riderIdQuery = {_id: new ObjectId(riderId)}
+      const riderUpdateDoc = {
+        $set: {
+          workStatus: "in_transit"
+        }
+      }
+      const riderResult = await riderCollection.updateOne(riderIdQuery, riderUpdateDoc)
+      res.send(result,riderResult)
+
+    })
     app.delete("/myparcels/:id", async(req, res) =>{
       const parcelId = req.params.id;
       const query = {_id: new ObjectId(parcelId)};
@@ -263,6 +313,7 @@ export async function connectToMongoDB() {
       const updateDoc = {
         $set: {
           paymentStatus: "paid",
+          deliveryStatus: 'pending-pickup',
           trackingId: trackingId
         }
       }
@@ -317,7 +368,6 @@ export async function connectToMongoDB() {
     console.dir(err);
   }
 }
-// Call this only when your application terminates
 export async function disconnectFromMongoDB() {
 //   await client.close();
 }
