@@ -100,7 +100,7 @@ export async function connectToMongoDB() {
       if(workStatus){
         query.workStatus = workStatus
       }
-        const cursor = riderCollection.find(query)
+        const cursor = riderCollection.find(query).sort({createdAt: -1})
         const result = await cursor.toArray()
         res.send(result)
     })
@@ -164,9 +164,23 @@ export async function connectToMongoDB() {
       res.send(result)
     })
 
+    app.patch("/users/:email/role", async(req, res) =>{
+      const {email} = req.params;
+      const roleInfo = req.body;
+      const query = {email: email}
+      const updateDoc = {
+        $set: {
+          role: roleInfo.role
+        }
+      }
+      const result = await userCollection.updateOne(query, updateDoc)
+      res.send(result)
+    })
     app.patch("/users/:id/role", verifyUser, verifyAdmin, async(req, res) =>{
       const id = req.params.id;
       const roleInfo = req.body;
+      // console.log(id)
+      // console.log(roleInfo.role)
       const query = {_id : new ObjectId(id)}
       const updateDoc = {
         $set: {
@@ -176,6 +190,7 @@ export async function connectToMongoDB() {
       const result = await userCollection.updateOne(query, updateDoc)
       res.send(result)
     })
+
 
     // ---------------- customerParcelsApi -----------------
 
@@ -202,9 +217,24 @@ export async function connectToMongoDB() {
     })
 
     app.get("/parcels/admin", async(req, res) =>{
-      const cursor = parcelCollection.find()
+      const cursor = parcelCollection.find().sort({createdAt: -1})
       const result = await cursor.toArray() 
       res.send(result)
+    })
+
+    app.get('/parcels/rider', async(req, res) =>{
+      const {riderEmail, deliveryStatus} = req.query;
+      const query = {}
+      if(riderEmail){
+        query.riderEmail = riderEmail
+      }
+      if(deliveryStatus){
+        query.deliveryStatus = {$nin: ["in_deliver"]}
+      }
+      const cursor = parcelCollection.find(query)
+      const result = await cursor.toArray()
+      res.send(result)
+
     })
 
     app.get('/parcel/:id', async(req, res) =>{
@@ -246,6 +276,35 @@ export async function connectToMongoDB() {
       res.send(result,riderResult)
 
     })
+
+    app.patch("/parcels/:id/status", async(req, res) =>{
+      const {deliveryStatus} = req.body;
+      const query = {_id: new ObjectId(req.params.id)}
+      const updateDoc = {
+        $set: {
+          deliveryStatus: deliveryStatus
+        }
+      }
+
+      const riderIdQuery = await parcelCollection.findOne(query)
+      console.log(riderIdQuery)
+
+      const result = await parcelCollection.updateOne(query, updateDoc)
+
+      if(deliveryStatus === "delivered"){
+        const riderQuery = {_id: new ObjectId(riderIdQuery.riderId)}
+        console.log(riderQuery)
+        const riderDoc = {
+          $set: {
+            workStatus: "available"
+          }
+        }
+        const riderResult = await riderCollection.updateOne(riderQuery, riderDoc)
+        res.send(riderResult)
+      }
+      res.send(result)
+    })
+
     app.delete("/myparcels/:id", async(req, res) =>{
       const parcelId = req.params.id;
       const query = {_id: new ObjectId(parcelId)};
@@ -253,6 +312,8 @@ export async function connectToMongoDB() {
       res.send(result)
     })
     
+
+
     // ------------- Payment APi ------------
 
     app.post('/create-checkout-session', async (req, res) => {
