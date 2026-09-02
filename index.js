@@ -66,7 +66,7 @@ export async function connectToMongoDB() {
     const paymentCollection = zapDB.collection("paymentCollection")
     const userCollection = zapDB.collection("userCollection")
     const riderCollection = zapDB.collection("riderCollection")
-
+    const trackingCollection = zapDB.collection("trackingCollection")
 
     // -------------- serviceCenter -----------
 
@@ -78,6 +78,19 @@ export async function connectToMongoDB() {
         return res.status(403).send({message: "forbidden access"})
       }
       next()
+    }
+
+
+    // parcel tracking log function 
+
+    const parcelLog = (trackingId, status) =>{
+      const logs = {
+        trackingId: trackingId,
+        status: status,
+        details: status,
+        createdAt: new Date()
+      }
+      return logs
     }
 
     app.get('/servicecenter', async(req, res) =>{
@@ -138,7 +151,7 @@ export async function connectToMongoDB() {
     // ------------- userCollection --------------
 
     app.get("/users", async(req, res) =>{
-      const cursor = userCollection.find()
+      const cursor = userCollection.find().sort({role: 1})
       const result = await cursor.toArray()
       res.send(result)
     })
@@ -176,11 +189,10 @@ export async function connectToMongoDB() {
       const result = await userCollection.updateOne(query, updateDoc)
       res.send(result)
     })
-    app.patch("/users/:id/role", verifyUser, verifyAdmin, async(req, res) =>{
-      const id = req.params.id;
+
+    app.patch("/users/:id/role", verifyAdmin, async(req, res) =>{
       const roleInfo = req.body;
-      // console.log(id)
-      // console.log(roleInfo.role)
+      const id = req.params.id;
       const query = {_id : new ObjectId(id)}
       const updateDoc = {
         $set: {
@@ -188,6 +200,7 @@ export async function connectToMongoDB() {
         }
       }
       const result = await userCollection.updateOne(query, updateDoc)
+      console.log(result)
       res.send(result)
     })
 
@@ -228,9 +241,14 @@ export async function connectToMongoDB() {
       if(riderEmail){
         query.riderEmail = riderEmail
       }
-      if(deliveryStatus){
-        query.deliveryStatus = {$nin: ["in_deliver"]}
+      
+      if(deliveryStatus !== "delivered"){
+        query.deliveryStatus = {$nin: ["delivered"]}
       }
+      else {
+        query.deliveryStatus = deliveryStatus
+      }
+
       const cursor = parcelCollection.find(query)
       const result = await cursor.toArray()
       res.send(result)
@@ -287,13 +305,11 @@ export async function connectToMongoDB() {
       }
 
       const riderIdQuery = await parcelCollection.findOne(query)
-      console.log(riderIdQuery)
 
       const result = await parcelCollection.updateOne(query, updateDoc)
 
       if(deliveryStatus === "delivered"){
         const riderQuery = {_id: new ObjectId(riderIdQuery.riderId)}
-        console.log(riderQuery)
         const riderDoc = {
           $set: {
             workStatus: "available"
@@ -343,7 +359,6 @@ export async function connectToMongoDB() {
       cancel_url: `${process.env.DOMAIN_API}/dashboard/payment-cancel`,
   });
 
-      // console.log(session)
       res.send({url: session.url})
 });
 
@@ -378,6 +393,8 @@ export async function connectToMongoDB() {
           trackingId: trackingId
         }
       }
+
+      parcelLog(trackingId, "parcel_paid")
       const result = await parcelCollection.updateOne(query, updateDoc)
 
       const paymentInfo = {
