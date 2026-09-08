@@ -83,14 +83,15 @@ export async function connectToMongoDB() {
 
     // parcel tracking log function 
 
-    const parcelLog = (trackingId, status) =>{
+    const parcelLog = async(trackingId, status) =>{
       const logs = {
         trackingId: trackingId,
         status: status,
         details: status,
         createdAt: new Date()
       }
-      return logs
+      const result = await trackingCollection.insertOne(logs)
+      return result
     }
 
     app.get('/servicecenter', async(req, res) =>{
@@ -99,6 +100,13 @@ export async function connectToMongoDB() {
         res.send(result)
     })
 
+    app.get("/parcel-logs/:trackingId", async(req, res) =>{
+      const trackingId = req.params.trackingId;
+      console.log(trackingId)
+      const query = {trackingId}
+      const result = await trackingCollection.find(query).toArray()
+      res.send(result)
+    })
     // -------------- riderCollection ------------
 
     app.get("/riders", verifyUser, verifyAdmin, async(req,res) =>{
@@ -270,13 +278,13 @@ export async function connectToMongoDB() {
     })
 
     app.patch("/parcel/:id", async(req, res) =>{
-      const {riderId, riderName, riderEmail} = req.body;
+      const {riderId, riderName, riderEmail, trackingId} = req.body;
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
 
       const updateDoc = {
         $set: {
-          deliveryStatus: "in_deliver",
+          deliveryStatus: "rider_assigned",
           riderId: riderId,
           riderName: riderName,
           riderEmail: riderEmail
@@ -284,6 +292,7 @@ export async function connectToMongoDB() {
       }
       const result = await parcelCollection.updateOne(query, updateDoc)
 
+      parcelLog(trackingId, "rider_assigned")
       const riderIdQuery = {_id: new ObjectId(riderId)}
       const riderUpdateDoc = {
         $set: {
@@ -296,7 +305,7 @@ export async function connectToMongoDB() {
     })
 
     app.patch("/parcels/:id/status", async(req, res) =>{
-      const {deliveryStatus} = req.body;
+      const {deliveryStatus, trackingId} = req.body;
       const query = {_id: new ObjectId(req.params.id)}
       const updateDoc = {
         $set: {
@@ -307,6 +316,7 @@ export async function connectToMongoDB() {
       const riderIdQuery = await parcelCollection.findOne(query)
 
       const result = await parcelCollection.updateOne(query, updateDoc)
+      parcelLog(trackingId,deliveryStatus)
 
       if(deliveryStatus === "delivered"){
         const riderQuery = {_id: new ObjectId(riderIdQuery.riderId)}
@@ -315,6 +325,7 @@ export async function connectToMongoDB() {
             workStatus: "available"
           }
         }
+        
         const riderResult = await riderCollection.updateOne(riderQuery, riderDoc)
         res.send(riderResult)
       }
@@ -389,12 +400,11 @@ export async function connectToMongoDB() {
       const updateDoc = {
         $set: {
           paymentStatus: "paid",
-          deliveryStatus: 'pending-pickup',
+          deliveryStatus: 'parcel_paid',
           trackingId: trackingId
         }
       }
 
-      parcelLog(trackingId, "parcel_paid")
       const result = await parcelCollection.updateOne(query, updateDoc)
 
       const paymentInfo = {
@@ -412,6 +422,8 @@ export async function connectToMongoDB() {
       if(session.payment_status === "paid"){
       try {
         const reesultPayment = await paymentCollection.insertOne(paymentInfo)
+        parcelLog(trackingId, "parcel_paid")
+
         res.send({success: true, 
         modifyParcel: result, 
         transactionId: session.payment_intent,
@@ -424,6 +436,7 @@ export async function connectToMongoDB() {
       }
 
     }
+    parcelLog(trackingId, "parcel_paid")
     // console.log(session)
   })
 
