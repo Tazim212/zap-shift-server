@@ -104,6 +104,7 @@ export async function connectToMongoDB() {
       const trackingId = req.params.trackingId;
       console.log(trackingId)
       const query = {trackingId}
+
       const result = await trackingCollection.find(query).toArray()
       res.send(result)
     })
@@ -272,7 +273,11 @@ export async function connectToMongoDB() {
 
     app.post("/sendparcel", async(req, res) =>{
       const query = req.body;
+      const trackingId = generateTrackingId()
       query.createdAt = new Date()
+      query.trackingId = trackingId
+
+      parcelLog(trackingId, "parcel_created")
       const result = await parcelCollection.insertOne(query)
       res.send(result) 
     })
@@ -364,7 +369,8 @@ export async function connectToMongoDB() {
       mode: 'payment',
       metadata: {
         parcelId: paymentInfo.parcelId,
-        parcelName: paymentInfo.parcelName
+        parcelName: paymentInfo.parcelName,
+        trackingId: paymentInfo.trackingId
       },
       success_url: `${process.env.DOMAIN_API}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.DOMAIN_API}/dashboard/payment-cancel`,
@@ -395,13 +401,12 @@ export async function connectToMongoDB() {
       const id = session.metadata.parcelId;
       const query = ({_id: new ObjectId(id)})
 
-      const trackingId= generateTrackingId()
+      const trackingId= session.metadata.trackingId
 
       const updateDoc = {
         $set: {
           paymentStatus: "paid",
           deliveryStatus: 'parcel_paid',
-          trackingId: trackingId
         }
       }
 
@@ -436,8 +441,6 @@ export async function connectToMongoDB() {
       }
 
     }
-    parcelLog(trackingId, "parcel_paid")
-    // console.log(session)
   })
 
   app.get("/payments", verifyUser, async(req, res) =>{
