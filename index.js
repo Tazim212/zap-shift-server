@@ -102,7 +102,6 @@ export async function connectToMongoDB() {
 
     app.get("/parcel-logs/:trackingId", async(req, res) =>{
       const trackingId = req.params.trackingId;
-      console.log(trackingId)
       const query = {trackingId}
 
       const result = await trackingCollection.find(query).toArray()
@@ -139,10 +138,11 @@ export async function connectToMongoDB() {
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
       const status = req.query.status;
+      const workStatus = status === "Accepted" ? "available" : "unavailable"
       const updateDoc = {
         $set : {
           status: status,
-          workStatus: "available"
+          workStatus: workStatus
         }
       }
       const result = await riderCollection.updateOne(query, updateDoc)
@@ -209,7 +209,6 @@ export async function connectToMongoDB() {
         }
       }
       const result = await userCollection.updateOne(query, updateDoc)
-      console.log(result)
       res.send(result)
     })
 
@@ -332,7 +331,7 @@ export async function connectToMongoDB() {
         }
         
         const riderResult = await riderCollection.updateOne(riderQuery, riderDoc)
-        res.send(riderResult)
+        // res.send(riderResult)
       }
       res.send(result)
     })
