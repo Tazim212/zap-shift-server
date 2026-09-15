@@ -36,7 +36,6 @@ app.use(express.static('public'));
 
 const verifyUser = async(req, res, next) =>{
   const token = req.headers.authorization
-  // console.log(token)
   if(!token){
     return res.status(401).send({message: "Unauthorized access"})
   }
@@ -46,7 +45,6 @@ const verifyUser = async(req, res, next) =>{
     const decoded = await getAuth().verifyIdToken(idToken)
     req.decoded_email = decoded.email;
     next()
-    // console.log(decoded)
   } catch (error) {
     return res.status(401).send({message: "unauthorized access"})
   }
@@ -186,7 +184,7 @@ export async function connectToMongoDB() {
       res.send(result)
     })
 
-    app.patch("/users/:email/role", async(req, res) =>{
+    app.patch("/users/:email/role", verifyUser, verifyAdmin, async(req, res) =>{
       const {email} = req.params;
       const roleInfo = req.body;
       const query = {email: email}
@@ -199,18 +197,18 @@ export async function connectToMongoDB() {
       res.send(result)
     })
 
-    app.patch("/users/:id/role", verifyAdmin, async(req, res) =>{
-      const roleInfo = req.body;
-      const id = req.params.id;
-      const query = {_id : new ObjectId(id)}
-      const updateDoc = {
-        $set: {
-          role: roleInfo.role
-        }
-      }
-      const result = await userCollection.updateOne(query, updateDoc)
-      res.send(result)
-    })
+    // app.patch("/users/:email/role", verifyUser, verifyAdmin, async(req, res) =>{
+    //   const roleInfo = req.body;
+    //   const {email} = req.params;
+    //   const query = {email: email}
+    //   const updateDoc = {
+    //     $set: {
+    //       role: roleInfo.role
+    //     }
+    //   }
+    //   const result = await userCollection.updateOne(query, updateDoc)
+    //   res.send(result)
+    // })
 
 
     // ---------------- customerParcelsApi -----------------
