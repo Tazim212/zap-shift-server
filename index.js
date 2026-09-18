@@ -56,7 +56,7 @@ const client = new MongoClient(`mongodb://${process.env.DB_USER}:${process.env.D
 export async function connectToMongoDB() {
   try {
     await client.connect();
-    console.log("You successfully connected to MongoDB!");
+    // console.log("You successfully connected to MongoDB!");
 
     const zapDB = client.db("zapDB")
     const serviceCenters = zapDB.collection("serviceCenters")
@@ -196,19 +196,6 @@ export async function connectToMongoDB() {
       const result = await userCollection.updateOne(query, updateDoc)
       res.send(result)
     })
-
-    // app.patch("/users/:email/role", verifyUser, verifyAdmin, async(req, res) =>{
-    //   const roleInfo = req.body;
-    //   const {email} = req.params;
-    //   const query = {email: email}
-    //   const updateDoc = {
-    //     $set: {
-    //       role: roleInfo.role
-    //     }
-    //   }
-    //   const result = await userCollection.updateOne(query, updateDoc)
-    //   res.send(result)
-    // })
 
 
     // ---------------- customerParcelsApi -----------------
