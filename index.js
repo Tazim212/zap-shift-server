@@ -56,7 +56,6 @@ const client = new MongoClient(`mongodb://${process.env.DB_USER}:${process.env.D
 export async function connectToMongoDB() {
   try {
     await client.connect();
-    // console.log("You successfully connected to MongoDB!");
 
     const zapDB = client.db("zapDB")
     const serviceCenters = zapDB.collection("serviceCenters")
@@ -359,7 +358,7 @@ export async function connectToMongoDB() {
       success_url: `${process.env.DOMAIN_API}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.DOMAIN_API}/dashboard/payment-cancel`,
   });
-
+    console.log(process.env.DOMAIN_API)
       res.send({url: session.url})
 });
 
