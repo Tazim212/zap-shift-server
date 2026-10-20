@@ -104,6 +104,57 @@ export async function connectToMongoDB() {
       const result = await trackingCollection.find(query).toArray()
       res.send(result)
     })
+
+    app.get("/parcel_user_stats/:email", async(req, res) =>{
+      const userEmail = req.params.email;
+      const query = await parcelCollection.aggregate(
+        [
+        {
+          $match: {senderEmail: userEmail}
+        },
+       {
+         $group: {
+          _id: "$senderEmail",
+          totalCount: {$sum: 1},
+          totalAmount: {$sum: "$costs"},
+          totalDelivered: {$sum: {
+                 $cond: [{ $eq: ["$deliveryStatus", "delivered"] }, 1, 0]
+              }}
+        },
+        
+       }
+     
+    ]).toArray()
+      res.send(query)
+    })
+
+    app.get("/parcel_rider_stats/:email", async(req, res) =>{
+      const ridersEmail = req.params.email;
+      const query = await parcelCollection.aggregate(
+        [
+        {
+          $match: {riderEmail: ridersEmail},
+        },
+        {
+          $group: {
+            _id: "ridersEmail",
+            totalAssigned: {
+              $sum: {
+                $cond: [{ $eq: ["$deliveryStatus", "rider_assigned"] }, 1, 0]
+              }
+            },
+            delivered: {$sum: {
+                 $cond: [{ $eq: ["$deliveryStatus", "delivered"] }, 1, 0]
+              }}
+          }
+        },
+     
+    ]).toArray()
+      res.send(query)
+    })
+
+
+
     // -------------- riderCollection ------------
 
     app.get("/riders", verifyUser, verifyAdmin, async(req,res) =>{
