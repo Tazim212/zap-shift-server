@@ -526,8 +526,12 @@ export async function connectToMongoDB() {
     if(email){
       query.customerEmail = email
     }
-    const result = await paymentCollection.find(query).toArray()
-    res.send(result)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 8;
+    const skip = (page - 1) * limit;
+    const total = await paymentCollection.countDocuments(query);
+    const result = await paymentCollection.find(query).skip(skip).limit(limit).toArray()
+    res.send({result, total, totalPages: Math.ceil(total/limit), currentPage: page})
   })
 
   app.get("/all_payments", verifyUser, verifyAdmin, async(req,res) =>{
