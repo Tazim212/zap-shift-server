@@ -194,9 +194,13 @@ export async function connectToMongoDB() {
       if(workStatus){
         query.workStatus = workStatus
       }
-        const cursor = riderCollection.find(query).sort({createdAt: -1})
-        const result = await cursor.toArray()
-        res.send(result)
+       const page = parseInt(req.query.page) || 1;
+       const limit = parseInt(req.query.limit) || 6;
+       const skip = (page - 1) * limit;
+       const total = await riderCollection.countDocuments()
+       const cursor = riderCollection.find(query).sort({createdAt: -1}).skip(skip).limit(limit)
+       const result = await cursor.toArray()
+       res.send({result, total, totalPages: Math.ceil(total/limit), currentPage: page})
     })
 
     app.post("/riders", async(req, res) =>{
