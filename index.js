@@ -152,30 +152,7 @@ export async function connectToMongoDB() {
     ]).toArray()
       res.send(query)
     })
-    // app.get("/parcel_admin_stats", async(req, res) =>{
-    //   const {role} = req.query;
-    //   if(role === "admin"){
-    //     const allRiders = role === "rider";
-    //     const totalRiders = await userCollection.countDocuments(allRiders)
-    //     const query = await parcelCollection.aggregate(
-    //     [
-    //     {
-    //       $match: {deliveryStatus: "delivered"},
-    //     },
-    //     {
-    //       $count: "totalDelivered"
-    //     },
 
-    //     ]).toArray()
-        
-    //     res.send({query, totalRiders})
-    //   }
-       
-    // })
-
-
-
-    // -------------- riderCollection ------------
 
     app.get("/parcel_admin_state", verifyUser, verifyAdmin, async(req,res) =>{
       const [totalDelivered, newParcel, totalRider, totalUser, totalIncome] = await Promise.all([
@@ -202,6 +179,8 @@ export async function connectToMongoDB() {
       }
       
     )
+
+    // -------------- riderCollection ------------
 
     app.get("/riders", verifyUser, verifyAdmin, async(req,res) =>{
       const {status, district, workStatus} = req.query;
@@ -253,10 +232,14 @@ export async function connectToMongoDB() {
 
     // ------------- userCollection --------------
 
-    app.get("/users", async(req, res) =>{
-      const cursor = userCollection.find().sort({role: 1})
-      const result = await cursor.toArray()
-      res.send(result)
+    app.get("/users", verifyUser, verifyAdmin, async(req, res) =>{
+       const page = parseInt(req.query.page) || 1;
+       const limit = parseInt(req.query.limit) || 5;
+       const skip = (page - 1) * limit;
+       const total = await userCollection.countDocuments()
+       const cursor = userCollection.find().sort({role: 1, _id: 1}).skip(skip).limit(limit)
+       const result = await cursor.toArray()
+       res.send({result, total, totalPages: Math.ceil(total/limit), currentPage: page})
     })
 
     app.get("/users/:email/role", async(req, res) =>{
@@ -297,12 +280,8 @@ export async function connectToMongoDB() {
     // ---------------- customerParcelsApi -----------------
 
     app.get("/myparcels",verifyUser, async(req, res) =>{
-       const page = parseInt(req.query.page) || 1;
-       const limit = parseInt(req.query.limit) || 8;
-       const skip = (page - 1) * limit;
-       const total = await parcelCollection.countDocuments();
        const query = {};
-      const {email, deliveryStatus} = req.query
+       const {email, deliveryStatus} = req.query
 
         if(email){
           query.senderEmail = email
@@ -315,11 +294,13 @@ export async function connectToMongoDB() {
         if(deliveryStatus){
           query.deliveryStatus = deliveryStatus
         }
-
-
-        const cursor = parcelCollection.find(query).sort({createdAt: -1}).skip(skip).limit(limit)
-        const result = await cursor.toArray()
-        res.send({result, total, totalPages: Math.ceil(total/limit), currentPage: page})
+       const page = parseInt(req.query.page) || 1;
+       const limit = parseInt(req.query.limit) || 8;
+       const skip = (page - 1) * limit;
+       const total = await parcelCollection.countDocuments(query)
+       const cursor = parcelCollection.find(query).sort({createdAt: -1}).skip(skip).limit(limit)
+       const result = await cursor.toArray()
+       res.send({result, total, totalPages: Math.ceil(total/limit), currentPage: page})
     })
 
     app.get("/parcels/admin", verifyUser, verifyAdmin, async(req, res) =>{
@@ -345,10 +326,14 @@ export async function connectToMongoDB() {
       else {
         query.deliveryStatus = deliveryStatus
       }
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 5;
+      const skip = (page - 1) * limit;
+      const total = await parcelCollection.countDocuments(query);
 
-      const cursor = parcelCollection.find(query)
+      const cursor = parcelCollection.find(query).skip(skip).limit(limit)
       const result = await cursor.toArray()
-      res.send(result)
+      res.send({result, total, totalPages: Math.ceil(total/limit), currentPage: page})
 
     })
 
